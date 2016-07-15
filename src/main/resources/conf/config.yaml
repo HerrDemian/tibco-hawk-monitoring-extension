@@ -1,0 +1,22 @@
+#Only RV mode is supported for now
+hawkDomain: "default"
+rvService: "7474"
+rvNetwork: ";"
+rvDaemon: "tcp:7474"
+
+hawkMicroAgents:
+  - displayName: "Local BW Agent"
+    agentName: "BusinessWorks6AppNode-888991987"
+    methods:
+      - methodName: "GetBWActivityStatistics"
+        arguments: {"Application Name" : "tibco.bw.sample.binding.rest.Basic.application", "Application Version" : "1.0"}
+      - methodName: "GetBWProcessStatistics"
+        arguments: {"Application Name" : "tibco.bw.sample.binding.rest.Basic.application", "Application Version" : "1.0"}
+      - methodName: "GetBWAppNodeProcessInfo"
+        arguments:
+
+# number of concurrent tasks
+numberOfThreads: 1
+
+#prefix used to show up metrics in AppDynamics
+metricPrefix: "Custom Metrics|Tibco|"

@@ -14,5 +14,9 @@ taskSchedule:
     numberOfThreads: 1
     taskDelaySeconds: 60
 
-#prefix used to show up metrics in AppDynamics
-metricPrefix: "Custom Metrics|Tibco|"
+#This will create this metric in all the tiers, under this path
+metricPrefix: "Custom Metrics|Tibco BW|"
+
+#This will create it in specific Tier/Component. Make sure to replace <COMPONENT_ID> with the appropriate one from your environment.
+#To find the <COMPONENT_ID> in your environment, please follow the screenshot https://docs.appdynamics.com/display/PRO42/Build+a+Monitoring+Extension+Using+Java
+#metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"

@@ -32,7 +32,7 @@ This extension works only with the standalone machine agent.
 | rvService | RV service to use to connect to hawk | "7474" |
 | rvNetwork | RV network to use to connect to hawk | ";" |
 | rvDaemon | RV daemon to use to connect to hawk | "tcp:7474" |
-| bwMicroagentNameMatcher | regex matcher to match and autodetect the BW hawk microagents  | ".*bwengine.*" |
+| bwMicroagentNameMatcher | regex matcher to match and autodetect the BW hawk microagents  | ".\*bwengine.\*" |
 
 ###metrics.xml
 
@@ -79,6 +79,7 @@ Metrics provided by this extension are depend on the methods and metrics configu
 ###GetMemoryUsage###
 
 | Metric | Description |
+| ----- | ----- |
 | TotalBytes | Total number of bytes allocated to the process engine. |
 | FreeBytes | Total number of bytes that are not currently in use.  |
 | UsedBytes |  Total number of bytes that are currently in use.  |
@@ -87,6 +88,7 @@ Metrics provided by this extension are depend on the methods and metrics configu
 ###GetProcessCount###
 
 | Metric | Description |
+| ----- | ----- |
 | TotalRunningProcesses | Total number of currently executing process instances.  |
 
 
@@ -95,6 +97,7 @@ Metrics provided by this extension are depend on the methods and metrics configu
 For each process definition following metrics are displayed
 
 | Metric | Description |
+| ----- | ----- |
 | Created |  Number of process instances created for this process definition. |
 | Suspended |  Number of times process instances have been suspended.  |
 | Swapped | Number of times process instances have been swapped to disk.  |
@@ -121,6 +124,7 @@ For each process definition following metrics are displayed
 For each activity in each process definition following metrics are displayed
 
 | Metric | Description |
+| ----- | ----- |
 | ExecutionCount |  Number of times the activity has been executed.  |
 | ElapsedTime | Total clock time (in milliseconds) used by all executions of this activity. This includes waiting time for Sleep, Call Process, and Wait For... activities.  |
 | ExecutionTime | Total clock time (in milliseconds) used by all executions of this activity. This does not include waiting time for Sleep, Call Process, and Wait For... activities.  |

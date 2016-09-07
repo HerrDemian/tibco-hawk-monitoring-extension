@@ -1,137 +1,173 @@
 package com.appdynamics.extensions.tibco;
 
 import COM.TIBCO.hawk.console.hawkeye.AgentManager;
-import COM.TIBCO.hawk.talon.CompositeData;
+import COM.TIBCO.hawk.console.hawkeye.TIBHawkConsole;
+import COM.TIBCO.hawk.console.hawkeye.TIBHawkConsoleFactory;
 import COM.TIBCO.hawk.talon.DataElement;
 import COM.TIBCO.hawk.talon.MethodInvocation;
 import COM.TIBCO.hawk.talon.MicroAgentData;
 import COM.TIBCO.hawk.talon.MicroAgentException;
 import COM.TIBCO.hawk.talon.MicroAgentID;
-import COM.TIBCO.hawk.talon.TabularData;
+import COM.TIBCO.hawk.utilities.misc.HawkConstants;
 import com.appdynamics.extensions.conf.MonitorConfiguration;
+import com.google.common.base.Strings;
 import org.apache.log4j.Logger;
 
-import java.math.BigDecimal;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 
-
+/**
+ * @author Satish Muddam
+ */
 public class HawkMetricFetcher implements Runnable {
 
     private static final Logger logger = Logger.getLogger(HawkMetricFetcher.class);
 
-    private MonitorConfiguration configuration;
-    private AgentManager agentManager;
-    private Map hawkMicroAgent;
-    private Stat[] stats;
-    private CountDownLatch doneSignal;
+    private static final String SELF_MICROAGENT_NAME = "COM.TIBCO.hawk.microagent.Self";
 
-    public HawkMetricFetcher(MonitorConfiguration configuration, AgentManager agentManager, Map hawkMicroAgent, Stat[] stats, CountDownLatch doneSignal) {
+    private MonitorConfiguration configuration;
+    private Map hawkConnection;
+    private TibcoResultParser tibcoResultParser;
+    private String hawkDomainDisplayName;
+    private Method[] methods;
+
+    public HawkMetricFetcher(MonitorConfiguration configuration, Map hawkConnection, Method[] methods) {
         this.configuration = configuration;
-        this.agentManager = agentManager;
-        this.hawkMicroAgent = hawkMicroAgent;
-        this.stats = stats;
-        this.doneSignal = doneSignal;
+        this.hawkConnection = hawkConnection;
+        hawkDomainDisplayName = (String) hawkConnection.get("displayName");
+        tibcoResultParser = new TibcoResultParser();
+        this.methods = methods;
     }
 
     public void run() {
 
         try {
-            String agentDisplayName = (String) hawkMicroAgent.get("displayName");
-            String agentName = (String) hawkMicroAgent.get("agentName");
 
-            Map<String, Stat> nameVsStat = buildStatsMap();
+            AgentManager agentManager = connect();
+            List<MicroAgentID> bwMicroagents = getBWMicroagents(agentManager);
 
-            MicroAgentID[] microAgentIDs = null;
-            try {
-                microAgentIDs = agentManager.getMicroAgentIDs(agentName, 1);
-            } catch (MicroAgentException e) {
-                logger.error("Error while trying to get the microagent [" + agentName + "]", e);
-                throw new RuntimeException("Error while trying to get the microagent [" + agentName + "]", e);
+            if (bwMicroagents == null || bwMicroagents.isEmpty()) {
+                logger.error("No BW microagents found for the specified patterns. Exiting the process.");
+                return;
             }
 
-            if (microAgentIDs == null || microAgentIDs.length <= 0) {
-                logger.error("Unable to find micro agent [" + agentName + "]");
-                throw new IllegalArgumentException("Unable to find micro agent [" + agentName + "]");
-            }
+            List<Method> methodsInExecutionOrder = arrangeMethodsInExecutionOrder(this.methods);
 
-            List<Map> methods = (List<Map>) hawkMicroAgent.get("methods");
-
-            boolean isBWProcessStatisticsCollectionEnabled = false;
-
-            for (Map method : methods) {
-
-                String methodName = (String) method.get("methodName");
-                Map<String, String> methodArgs = (Map) method.get("arguments");
-
-                DataElement[] args = null;
-
-                if (methodArgs != null && methodArgs.size() > 0) {
-                    Set<Map.Entry<String, String>> entries = methodArgs.entrySet();
-
-                    args = new DataElement[entries.size()];
-
-                    int i = 0;
-                    for (Map.Entry<String, String> methodArg : entries) {
-                        args[i++] = new DataElement(methodArg.getKey(), methodArg.getValue());
-                    }
-                }
-
-                Stat stat = nameVsStat.get(methodName);
-                if (stat == null) {
-                    logger.error("Could not find method [" + methodName + "] entry in the metrics.xml.");
-                    continue;
-                }
-
-                if (!isBWProcessStatisticsCollectionEnabled && args != null) {
-                    boolean result = enableBWProcessStatisticsCollection(microAgentIDs[0], args);
-                    if (result) {
-                        isBWProcessStatisticsCollectionEnabled = true;
-                    }
-                }
-
-                if (isBWProcessStatisticsCollectionEnabled || args == null) {
-                    Object methodResult = executeMethod(microAgentIDs[0], methodName, args);
-                    printData(methodName, methodResult, stat, agentDisplayName);
+            for (Method method : methodsInExecutionOrder) {
+                if (method.isEnabled()) {
+                    executeMethod(agentManager, bwMicroagents, method);
                 } else {
-                    logger.error("Not executing method [" + methodName + "] as extension is not able to enable BWProcessStatisticsCollection for [" + microAgentIDs[0] + "] with args [" + Arrays.toString(args) + "]");
+                    logger.info("Method " + method.getMethodName() + " is not enabled, hence skipping");
                 }
             }
-        } finally {
-            doneSignal.countDown();
+
+        } catch (Exception e) {
+            logger.error("Error while collecting metrics from domain [" + hawkDomainDisplayName + "]", e);
         }
     }
 
-    private boolean enableBWProcessStatisticsCollection(MicroAgentID microAgentID, DataElement[] args) {
+    private List<Method> arrangeMethodsInExecutionOrder(Method[] methods) {
 
-        Object response = executeMethod(microAgentID, "EnableBWProcessStatisticsCollection", args);
+        List<Method> methodsWithNoParameters = new ArrayList<Method>();
+        List<Method> methodsWithParametersAndNotDependent = new ArrayList<Method>();
+        List<Method> methodsWithParametersAndDependent = new ArrayList<Method>();
 
-        if (response == null) {
-            return true;
-        }
+        for (Method method : methods) {
+            Argument[] arguments = method.getArguments();
 
-        if (response instanceof MicroAgentException) {
-            MicroAgentException exc = (MicroAgentException) response;
-            if (exc.getMessage().contains("Instrumentation is already enabled")) {
-                return true;
+            if (arguments == null || arguments.length <= 0) {
+                methodsWithNoParameters.add(method);
+            } else {
+                String dependsOn = method.getDependsOn();
+                if (dependsOn == null || dependsOn.length() <= 0) {
+                    methodsWithParametersAndNotDependent.add(method);
+                } else {
+                    methodsWithParametersAndDependent.add(method);
+                }
             }
         }
-        return false;
+
+        List<Method> methodsInExecutionOrder = new ArrayList<Method>();
+        methodsInExecutionOrder.addAll(methodsWithNoParameters);
+        methodsInExecutionOrder.addAll(methodsWithParametersAndNotDependent);
+        methodsInExecutionOrder.addAll(methodsWithParametersAndDependent);
+        return methodsInExecutionOrder;
     }
 
-    private Map<String, Stat> buildStatsMap() {
-        Map<String, Stat> nameVsStat = new HashMap<String, Stat>();
-        for (Stat stat : stats) {
-            nameVsStat.put(stat.getMethodName(), stat);
+    private List<MicroAgentID> getBWMicroagents(AgentManager agentManager) {
+        List<String> bwMicroagentNameMatcher = (List) hawkConnection.get("bwMicroagentNameMatcher");
+
+        MicroAgentID[] selfMicroAgentIDs = null;
+        try {
+            selfMicroAgentIDs = agentManager.getMicroAgentIDs(SELF_MICROAGENT_NAME, 1);
+        } catch (MicroAgentException e) {
+            logger.error("Error while trying to get microagents from [ " + SELF_MICROAGENT_NAME + " ]", e);
+            throw new RuntimeException("Error while trying to get microagents from [ " + SELF_MICROAGENT_NAME + " ]", e);
         }
-        return nameVsStat;
+
+        if (selfMicroAgentIDs == null || selfMicroAgentIDs.length <= 0) {
+            logger.error("Unable to find micro agent [ " + SELF_MICROAGENT_NAME + " ]");
+            throw new IllegalArgumentException("Unable to find micro agent [ " + SELF_MICROAGENT_NAME + " ]");
+        }
+
+        Object methodResult = executeMethod(agentManager, selfMicroAgentIDs[0], "getMicroAgentInfo", null);
+        List<String> bwMicroAgentIdNames = tibcoResultParser.parseMicroAgentInfoResult(methodResult, bwMicroagentNameMatcher);
+
+        List<MicroAgentID> bwMicroAgentIds = new ArrayList<MicroAgentID>();
+
+        for (String bwMicroAgentId : bwMicroAgentIdNames) {
+            try {
+                MicroAgentID[] microAgentIDs = agentManager.getMicroAgentIDs(bwMicroAgentId);
+                bwMicroAgentIds.add(microAgentIDs[0]);
+            } catch (MicroAgentException e) {
+                logger.error("Unable to get the microagent with name [" + bwMicroAgentId + "]");
+            }
+        }
+
+        return bwMicroAgentIds;
     }
 
-    private Object executeMethod(MicroAgentID microAgentID, String methodName, DataElement[] args) {
+    private AgentManager connect() {
+        String hawkDomain = (String) hawkConnection.get("hawkDomain");
+        String rvService = (String) hawkConnection.get("rvService");
+        String rvNetwork = (String) hawkConnection.get("rvNetwork");
+        String rvDaemon = (String) hawkConnection.get("rvDaemon");
+
+        if (Strings.isNullOrEmpty(hawkDomain) || Strings.isNullOrEmpty(rvService)
+                || Strings.isNullOrEmpty(rvNetwork) || Strings.isNullOrEmpty(rvDaemon)) {
+            logger.error("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
+            throw new IllegalArgumentException("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
+        }
+
+        Map<String, Object> result = new HashMap<String, Object>();
+        result.put(HawkConstants.HAWK_TRANSPORT, HawkConstants.HAWK_TRANSPORT_TIBRV);
+        result.put(HawkConstants.RV_SERVICE, rvService);
+        result.put(HawkConstants.RV_NETWORK, rvNetwork);
+        result.put(HawkConstants.RV_DAEMON, rvDaemon);
+        result.put(HawkConstants.HAWK_DOMAIN, hawkDomain);
+
+        AgentManager agentManager = null;
+        try {
+            TIBHawkConsole hawkConsole = TIBHawkConsoleFactory.getInstance().createHawkConsole(result);
+            agentManager = hawkConsole.getAgentManager();
+            agentManager.initialize();
+        } catch (Exception e) {
+            logger.error("Exception while connecting to hawk", e);
+            throw new RuntimeException("Exception while connecting to hawk", e);
+        }
+        return agentManager;
+    }
+
+    private void executeMethod(AgentManager agentManager, List<MicroAgentID> bwMicroagents, Method method) {
+        for (MicroAgentID microAgentID : bwMicroagents) {
+            Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
+            printData(method.getMethodName(), null, methodResult, method, microAgentID.getName());
+        }
+    }
+
+    private Object executeMethod(AgentManager agentManager, MicroAgentID microAgentID, String methodName, DataElement[] args) {
 
         MethodInvocation mi = new MethodInvocation(methodName, args);
         try {
@@ -143,80 +179,18 @@ public class HawkMetricFetcher implements Runnable {
         return null;
     }
 
-    private void printData(String methodName, Object methodResult, Stat stat, String agentDisplayName) {
+    private void printData(String methodName, String methodDisplayName, Object methodResult, Method method, String agentDisplayName) {
 
-        String basePath = stat.getBasePath();
-
-        if (methodResult instanceof CompositeData) {
-            CompositeData compData = (CompositeData) methodResult;
-            String replacedBasepath = replaceBasepathWithValues(basePath, compData.getDataElements());
-
-            Metric[] metrics = stat.getMetrics();
-
-            for (Metric metric : metrics) {
-                String value = compData.getValue(metric.getColumnName()).toString();
-                String metricType = metric.getMetricType() == null ? stat.getMetricType() : metric.getMetricType();
-                configuration.getMetricWriter().printMetric(configuration.getMetricPrefix() + "|" + agentDisplayName + "|" + methodName + "|" + replacedBasepath + metric.getLabel(), new BigDecimal(value), metricType);
-            }
-        } else if (methodResult instanceof TabularData) {
-            TabularData tabData = (TabularData) methodResult;
-
-            DataElement[][] allDataElements = tabData.getAllDataElements();
-            for (DataElement[] dataElements : allDataElements) {
-                String replacedBasepath = replaceBasepathWithValues(basePath, dataElements);
-
-                Map<Metric, Integer> metricVsIndex = buildMetricColumnIndexes(stat, tabData.getColumnNames());
-
-                for (Map.Entry<Metric, Integer> entry : metricVsIndex.entrySet()) {
-
-                    Metric metric = entry.getKey();
-
-                    String metricLabel = metric.getLabel();
-                    String metricValue = dataElements[entry.getValue().intValue()].getValue().toString();
-
-                    if (metric.hasConverters()) {
-                        metricValue = metric.convertValue(metric.getColumnName(), metricValue);
-                    }
-
-                    String metricType = metric.getMetricType() == null ? stat.getMetricType() : metric.getMetricType();
-
-                    configuration.getMetricWriter().printMetric(configuration.getMetricPrefix() + "|" + agentDisplayName + "|" + methodName + "|" + replacedBasepath + metricLabel, new BigDecimal(metricValue), metricType);
-                }
-            }
-        } else if (methodResult instanceof MicroAgentException) {
-            MicroAgentException me = (MicroAgentException) methodResult;
-            logger.error("Method execution returned error", me);
-        } else if (methodResult == null) {
-            logger.info("Method execution returned empty result");
-        } else {
-            logger.error("Method execution returned unknown type [" + methodResult + "]");
+        StringBuilder methodNameWithDisplayName = new StringBuilder(methodName);
+        if (methodDisplayName != null && methodDisplayName.length() > 0) {
+            methodNameWithDisplayName.append("|").append(methodDisplayName);
         }
-    }
 
-    private Map<Metric, Integer> buildMetricColumnIndexes(Stat stat, String[] columnNames) {
-        Map<Metric, Integer> metricVsIndex = new HashMap<Metric, Integer>();
-        Metric[] metrics = stat.getMetrics();
-        for (int i = 0; i < columnNames.length; i++) {
-            for (Metric metric : metrics) {
-                if (columnNames[i].equals(metric.getColumnName())) {
-                    metricVsIndex.put(metric, i);
-                }
-            }
+        TibcoResultParser tibcoResultParser = new TibcoResultParser();
+        List<TibcoMetric> tibcoMetrics = tibcoResultParser.parseResult(methodResult, method);
+
+        for (TibcoMetric tibcoMetric : tibcoMetrics) {
+            configuration.getMetricWriter().printMetric(configuration.getMetricPrefix() + "|" + hawkDomainDisplayName + "|" + agentDisplayName + "|" + methodNameWithDisplayName + "|" + tibcoMetric.getFullPath(), tibcoMetric.getValue(), tibcoMetric.getMetricType());
         }
-        return metricVsIndex;
-    }
-
-    private String replaceBasepathWithValues(String basePath, DataElement[] dataElements) {
-        String[] split = basePath.split("\\|");
-
-        StringBuilder sb = new StringBuilder();
-        for (String pathElement : split) {
-            for (DataElement dataElement : dataElements) {
-                if (dataElement.getName().equals(pathElement)) {
-                    sb.append(dataElement.getValue()).append("|");
-                }
-            }
-        }
-        return sb.toString();
     }
 }

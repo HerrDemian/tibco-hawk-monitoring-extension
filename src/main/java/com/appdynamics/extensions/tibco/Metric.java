@@ -25,6 +25,8 @@ public class Metric {
     private String label;
     @XmlAttribute(name = "metric-type")
     private String metricType;
+    @XmlAttribute
+    private String enabled;
     @XmlElement(name = "converter")
     private MetricConverter[] converters;
     @XmlTransient
@@ -52,6 +54,14 @@ public class Metric {
 
     public void setMetricType(String metricType) {
         this.metricType = metricType;
+    }
+
+    public Boolean isEnabled() {
+        return Boolean.valueOf(enabled);
+    }
+
+    public void setEnabled(String enabled) {
+        this.enabled = enabled;
     }
 
     //Dirty method, assuming that these objects do not change.

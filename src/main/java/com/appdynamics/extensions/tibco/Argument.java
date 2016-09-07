@@ -8,18 +8,19 @@ import javax.xml.bind.annotation.XmlAttribute;
  * @author Satish Muddam
  */
 @XmlAccessorType(XmlAccessType.FIELD)
-public class MetricConverter {
-    @XmlAttribute(name = "str")
-    private String label;
-    @XmlAttribute(name = "value")
+public class Argument {
+
+    @XmlAttribute
+    private String name;
+    @XmlAttribute
     private String value;
 
-    public String getLabel() {
-        return label;
+    public String getName() {
+        return name;
     }
 
-    public void setLabel(String label) {
-        this.label = label;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getValue() {

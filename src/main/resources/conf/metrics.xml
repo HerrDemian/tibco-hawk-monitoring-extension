@@ -1,47 +1,50 @@
-<stats>
-    <stat methodName="GetBWActivityStatistics"
-          basePath="Application Name|Application Version|Process Name|Activity Name|" metric-type="OBS.CUR.COL">
-        <metric columnName="Execution Count" label="Execution Count"/>
-        <metric columnName="Error Count" label="Error Count"/>
-        <metric columnName="Last Return Code" label="Rolled Back Transactions">
-            <converter str="COMPLETED" value="1"/>
-            <converter str="FAULTED" value="0"/>
-        </metric>
-        <metric columnName="Execution Time" label="Execution Time"/>
-        <metric columnName="Elapsed Time" label="Elapsed Time"/>
-        <metric columnName="Min Elapsed Time" label="Min Elapsed Time"/>
-        <metric columnName="Max Elapsed Time" label="Max Elapsed Time"/>
-        <metric columnName="Min Execution Time" label="Min Execution Time"/>
-        <metric columnName="Max Execution Time" label="Max Execution Time"/>
-        <metric columnName="Most Recent Execution Time" label="Most Recent Execution Time"/>
-        <metric columnName="Most Recent Elapsed Time" label="Most Recent Elapsed Time"/>
-        <metric columnName="Execution Count Since Reset" label="Execution Count Since Reset"/>
-    </stat>
-    <stat methodName="GetBWProcessStatistics"
-          basePath="Application Name|Application Version|Module Name|Module Version|Process Name|"
-          metric-type="OBS.CUR.COL">
+<methods>
+    <method methodName="GetMemoryUsage" basePath="" metric-type="OBS.CUR.COL" enabled="true">
+        <metric columnName="TotalBytes" label="Total Bytes"/>
+        <metric columnName="FreeBytes" label="Free Bytes"/>
+        <metric columnName="UsedBytes" label="Used Bytes"/>
+        <metric columnName="PercentUsed" label="Percent Used"/>
+    </method>
+    <method methodName="GetProcessCount" basePath="" metric-type="OBS.CUR.COL" enabled="true">
+        <metric columnName="TotalRunningProcesses" label="Total Running Processes"/>
+    </method>
+    <method methodName="GetProcessDefinitions" basePath="Name|" metric-type="OBS.CUR.COL" enabled="true">
         <metric columnName="Created" label="Created"/>
         <metric columnName="Suspended" label="Suspended"/>
-        <metric columnName="Failed" label="Failed"/>
+        <metric columnName="Swapped" label="Swapped"/>
+        <metric columnName="Queued" label="Queued"/>
+        <metric columnName="Aborted" label="Aborted"/>
         <metric columnName="Completed" label="Completed"/>
-        <metric columnName="Total Execution" label="Total Execution"/>
-        <metric columnName="Average Execution" label="Average Execution"/>
-        <metric columnName="Total Elapsed" label="Total Elapsed"/>
-        <metric columnName="Average Elapsed" label="Average Elapsed"/>
-        <metric columnName="Min Elapsed" label="Min Elapsed"/>
-        <metric columnName="Max Elapsed" label="Max Elapsed"/>
-        <metric columnName="Min Execution" label="Min Execution"/>
-        <metric columnName="Max Execution" label="Max Execution"/>
-        <metric columnName="Most Recent Execution Time" label="Most Recent Execution Time"/>
-        <metric columnName="Most Recent Elapsed Time" label="Most Recent Elapsed Time"/>
-        <metric columnName="Count Since Reset" label="Count Since Reset"/>
-    </stat>
-    <stat methodName="GetBWAppNodeProcessInfo" basePath="AppNode Name|" metric-type="OBS.CUR.COL">
-        <metric columnName="Active Thread Count" label="Active Thread Count"/>
-        <metric columnName="Total Memory" label="Total Memory"/>
-        <metric columnName="Used Memory" label="Used Memory"/>
-        <metric columnName="Free Memory" label="Free Memory"/>
-        <metric columnName="Used Memory Percentage" label="Used Memory Percentage"/>
-        <metric columnName="Used CPU Percentage" label="Used CPU Percentage"/>
-    </stat>
-</stats>
+        <metric columnName="Checkpointed" label="Checkpointed"/>
+        <metric columnName="TotalExecution" label="Total Execution"/>
+        <metric columnName="AverageExecution" label="Average Execution"/>
+        <metric columnName="TotalElapsed" label="Total Elapsed"/>
+        <metric columnName="AverageElapsed" label="Average Elapsed"/>
+        <metric columnName="MinElapsed" label="Min Elapsed"/>
+        <metric columnName="MaxElapsed" label="Max Elapsed"/>
+        <metric columnName="MinExecution" label="Min Execution"/>
+        <metric columnName="MaxExecution" label="Max Execution"/>
+        <metric columnName="MostRecentExecutionTime" label="Most Recent Execution Time"/>
+        <metric columnName="MostRecentElapsedTime" label="Most Recent Elapsed Time"/>
+        <metric columnName="TimeSinceLastUpdate" label="Time Since Last Update"/>
+        <metric columnName="CountSinceReset" label="Count Since Reset"/>
+    </method>
+    <method methodName="GetActivities" basePath="ProcessDefName|Name|" metric-type="OBS.CUR.COL" dependsOn="GetProcessDefinitions" enabled="true">
+
+        <metric columnName="ExecutionCount" label="Execution Count"/>
+        <metric columnName="ElapsedTime" label="Elapsed Time"/>
+        <metric columnName="ExecutionTime" label="Execution Time"/>
+        <metric columnName="ErrorCount" label="Error Count"/>
+        <metric columnName="LastReturnCode" label="Last Return Code">
+            <converter str="OK" value="1"/>
+            <converter str="DEAD" value="2"/>
+            <converter str="ERROR" value="3"/>
+        </metric>
+        <metric columnName="MinElapsedTime" label="Min Elapsed Time"/>
+        <metric columnName="MaxElapsedTime" label="Max Elapsed Time"/>
+        <metric columnName="MinExecutionTime" label="Min Execution Time"/>
+        <metric columnName="MaxExecutionTime" label="Max Execution Time"/>
+        <metric columnName="TimeSinceLastUpdate" label="Time Since LastUpdate"/>
+        <metric columnName="ExecutionCountSinceReset" label="Execution Count Since Reset"/>
+    </method>
+</methods>

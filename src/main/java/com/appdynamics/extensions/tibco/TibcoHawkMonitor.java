@@ -1,14 +1,9 @@
 package com.appdynamics.extensions.tibco;
 
 
-import COM.TIBCO.hawk.console.hawkeye.AgentManager;
-import COM.TIBCO.hawk.console.hawkeye.TIBHawkConsole;
-import COM.TIBCO.hawk.console.hawkeye.TIBHawkConsoleFactory;
-import COM.TIBCO.hawk.utilities.misc.HawkConstants;
 import com.appdynamics.extensions.conf.MonitorConfiguration;
 import com.appdynamics.extensions.util.MetricWriteHelper;
 import com.appdynamics.extensions.util.MetricWriteHelperFactory;
-import com.google.common.base.Strings;
 import com.singularity.ee.agent.systemagent.api.AManagedMonitor;
 import com.singularity.ee.agent.systemagent.api.TaskExecutionContext;
 import com.singularity.ee.agent.systemagent.api.TaskOutput;
@@ -22,11 +17,14 @@ import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+
+/**
+ * @author Satish Muddam
+ */
 public class TibcoHawkMonitor extends AManagedMonitor {
 
     private static final String METRIC_PREFIX = "Custom Metrics|Tibco|";
@@ -83,7 +81,7 @@ public class TibcoHawkMonitor extends AManagedMonitor {
             MetricWriteHelper metricWriteHelper = MetricWriteHelperFactory.create(this);
             MonitorConfiguration conf = new MonitorConfiguration(METRIC_PREFIX, new TaskRunnable(), metricWriteHelper);
             conf.setConfigYml(configFilePath);
-            conf.setMetricsXml(metricFilePath, Stat.Stats.class);
+            conf.setMetricsXml(metricFilePath, Method.Methods.class);
 
             conf.checkIfInitialized(MonitorConfiguration.ConfItem.CONFIG_YML, MonitorConfiguration.ConfItem.METRICS_XML, MonitorConfiguration.ConfItem.METRIC_PREFIX,
                     MonitorConfiguration.ConfItem.METRIC_WRITE_HELPER, MonitorConfiguration.ConfItem.EXECUTOR_SERVICE);
@@ -96,64 +94,25 @@ public class TibcoHawkMonitor extends AManagedMonitor {
 
         public void run() {
             if (!initialized) {
-                logger.info("SQL Broker Monitor is still initializing");
+                logger.info("Tibco Hawk Monitor is still initializing");
                 return;
             }
 
             Map<String, ?> config = configuration.getConfigYml();
 
-            String hawkDomain = (String) config.get("hawkDomain");
-            String rvService = (String) config.get("rvService");
-            String rvNetwork = (String) config.get("rvNetwork");
-            String rvDaemon = (String) config.get("rvDaemon");
+            Method[] methods = ((Method.Methods) configuration.getMetricsXmlConfiguration()).getMethods();
 
-            if (Strings.isNullOrEmpty(hawkDomain) || Strings.isNullOrEmpty(rvService)
-                    || Strings.isNullOrEmpty(rvNetwork) || Strings.isNullOrEmpty(rvDaemon)) {
-                logger.error("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
-                throw new IllegalArgumentException("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
+            if (methods == null || methods.length <= 0) {
+                logger.error("Methods are not configured in the metrics.xml. Exiting the process");
+                return;
             }
 
-            Map<String, Object> result = new HashMap<String, Object>();
-            result = new HashMap<String, Object>();
-            result.put(HawkConstants.HAWK_TRANSPORT, HawkConstants.HAWK_TRANSPORT_TIBRV);
-            result.put(HawkConstants.RV_SERVICE, rvService);
-            result.put(HawkConstants.RV_NETWORK, rvNetwork);
-            result.put(HawkConstants.RV_DAEMON, rvDaemon);
-            result.put(HawkConstants.HAWK_DOMAIN, hawkDomain);
+            List<Map> hawkConnections = (List<Map>) config.get("hawkConnection");
 
-            AgentManager agentManager = null;
-            try {
-                TIBHawkConsole hawkConsole = TIBHawkConsoleFactory.getInstance().createHawkConsole(result);
-                agentManager = hawkConsole.getAgentManager();
-                agentManager.initialize();
-            } catch (Exception e) {
-                logger.error("Exception while connecting to hawk", e);
-                throw new RuntimeException("Exception while connecting to hawk", e);
-            }
+            for (Map hawkConnection : hawkConnections) {
 
-            List<Map> hawkMicroAgents = (List) config.get("hawkMicroAgents");
-
-            Stat[] stats = ((Stat.Stats) configuration.getMetricsXmlConfiguration()).getStats();
-
-            if (hawkMicroAgents != null && !hawkMicroAgents.isEmpty()) {
-
-                CountDownLatch doneSignal = new CountDownLatch(hawkMicroAgents.size());
-
-                for (Map hawkMicroAgent : hawkMicroAgents) {
-                    HawkMetricFetcher task = new HawkMetricFetcher(configuration, agentManager, hawkMicroAgent, stats, doneSignal);
-                    configuration.getExecutorService().execute(task);
-                }
-
-                try {
-                    doneSignal.await();
-                } catch (InterruptedException e) {
-                    logger.error("Interrupted while waiting for task completion", e);
-                }
-
-                agentManager.shutdown();
-
-            } else {
-                logger.error("There are no hawkMicroAgents configured");
+                HawkMetricFetcher task = new HawkMetricFetcher(configuration, hawkConnection, methods);
+                configuration.getExecutorService().execute(task);
             }
         }
     }

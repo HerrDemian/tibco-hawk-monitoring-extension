@@ -18,9 +18,7 @@
         </task-arguments>
 
         <java-task>
-            <classpath>
-                tibco-hawk-monitoring-extension.jar;lib/console.jar;lib/console_agent_shared.jar;lib/talon.jar;lib/tibrvj.jar;lib/util.jar
-            </classpath>
+            <classpath>tibco-hawk-monitoring-extension.jar;lib/console.jar;lib/console_agent_shared.jar;lib/talon.jar;lib/tibrvj.jar;lib/util.jar</classpath>
             <impl-class>com.appdynamics.extensions.tibco.TibcoHawkMonitor</impl-class>
         </java-task>
 

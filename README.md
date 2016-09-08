@@ -17,7 +17,8 @@ This extension works only with the standalone machine agent.
 2. Copy and unzip TibcoHawkMonitor-\<version\>.zip from 'target' directory into \<machine_agent_dir\>/monitors/
 3. Edit config.yaml file in TibcoHawkMonitor/conf and provide the required configuration (see Configuration section)
 4. All the BW hawk methods are configured in metrics.xml file in TibcoHawkMonitor/conf
-5. Restart the Machine Agent.
+5. Replace the jars in lib with the jars from your Tibco BW installation. In BW 5.9 all the jars are available in tibrv folder.
+6. Restart the Machine Agent.
 
 ##Configuration
 

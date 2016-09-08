@@ -148,6 +148,30 @@ For each activity in each process definition following metrics are displayed
 5. Check Logs: There could be some obvious errors in the machine agent logs. Please take a look.
 6. Collect Debug Logs: Edit the file, <MachineAgent>/conf/logging/log4j.xml and update the level of the appender com.appdynamics to debug Let it run for 5-10 minutes and attach the logs to a support ticket
 
+
+##Workbench
+
+Workbench is a feature by which you can preview the metrics before registering it with the controller. This is useful if you want to fine tune the configurations. Workbench is embedded into the extension jar.
+
+To use the workbench
+
+* Follow all the installation steps
+* Start the workbench with the command
+~~~
+  java -jar /path/to/MachineAgent/monitors/F5Monitor/f5-monitoring-extension.jar
+  This starts an http server at http://host:9090/. This can be accessed from the browser.
+~~~
+* If the server is not accessible from outside/browser, you can use the following end points to see the list of registered metrics and errors.
+~~~
+    #Get the stats
+    curl http://localhost:9090/api/stats
+    #Get the registered metrics
+    curl http://localhost:9090/api/metric-paths
+~~~
+* You can make the changes to config.yml and validate it from the browser or the API
+* Once the configuration is complete, you can kill the workbench and start the Machine Agent
+
+
 ##Contributing
 
 Always feel free to fork and contribute any changes directly via [GitHub](https://github.com/Appdynamics/tibco-hawk-monitoring-extension).

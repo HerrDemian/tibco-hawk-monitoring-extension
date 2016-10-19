@@ -40,7 +40,12 @@ public class TibcoResultParser {
         } else {
             logger.error("Method execution returned unknown type [" + methodResult + "]");
         }
+
+        logger.debug("Found [" + microAgentIds.size() + "] microagents using Self microagent");
+        logger.trace("Found microagent names [" + microAgentIds + "]");
         List<String> filteredList = filter(microAgentIds, bwMicroagentNameMatcher);
+        logger.debug("Matched BW microagents size [" + filteredList.size() + "]");
+        logger.trace("Matched BW microagents [" + filteredList + "]");
         return filteredList;
     }
 

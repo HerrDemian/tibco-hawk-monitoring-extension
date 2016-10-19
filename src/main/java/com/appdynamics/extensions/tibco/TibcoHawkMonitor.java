@@ -108,10 +108,11 @@ public class TibcoHawkMonitor extends AManagedMonitor {
             }
 
             List<Map> hawkConnections = (List<Map>) config.get("hawkConnection");
+            Integer numberOfThreadsPerDomain = (Integer) config.get("numberOfThreadsPerDomain");
 
             for (Map hawkConnection : hawkConnections) {
 
-                HawkMetricFetcher task = new HawkMetricFetcher(configuration, hawkConnection, methods);
+                HawkMetricFetcher task = new HawkMetricFetcher(configuration, hawkConnection, methods, numberOfThreadsPerDomain);
                 configuration.getExecutorService().execute(task);
             }
         }

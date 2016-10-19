@@ -11,12 +11,15 @@ import COM.TIBCO.hawk.talon.MicroAgentID;
 import COM.TIBCO.hawk.utilities.misc.HawkConstants;
 import com.appdynamics.extensions.conf.MonitorConfiguration;
 import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * @author Satish Muddam
@@ -32,13 +35,15 @@ public class HawkMetricFetcher implements Runnable {
     private TibcoResultParser tibcoResultParser;
     private String hawkDomainDisplayName;
     private Method[] methods;
+    private Integer numberOfThreadsPerDomain;
 
-    public HawkMetricFetcher(MonitorConfiguration configuration, Map hawkConnection, Method[] methods) {
+    public HawkMetricFetcher(MonitorConfiguration configuration, Map hawkConnection, Method[] methods, Integer numberOfThreadsPerDomain) {
         this.configuration = configuration;
         this.hawkConnection = hawkConnection;
         hawkDomainDisplayName = (String) hawkConnection.get("displayName");
         tibcoResultParser = new TibcoResultParser();
         this.methods = methods;
+        this.numberOfThreadsPerDomain = numberOfThreadsPerDomain;
     }
 
     public void run() {
@@ -53,9 +58,9 @@ public class HawkMetricFetcher implements Runnable {
                 return;
             }
 
-            List<Method> methodsInExecutionOrder = arrangeMethodsInExecutionOrder(this.methods);
+            List<Method> methodsToExecute = Lists.newArrayList(this.methods);
 
-            for (Method method : methodsInExecutionOrder) {
+            for (Method method : methodsToExecute) {
                 if (method.isEnabled()) {
                     executeMethod(agentManager, bwMicroagents, method);
                 } else {
@@ -66,34 +71,6 @@ public class HawkMetricFetcher implements Runnable {
         } catch (Exception e) {
             logger.error("Error while collecting metrics from domain [" + hawkDomainDisplayName + "]", e);
         }
-    }
-
-    private List<Method> arrangeMethodsInExecutionOrder(Method[] methods) {
-
-        List<Method> methodsWithNoParameters = new ArrayList<Method>();
-        List<Method> methodsWithParametersAndNotDependent = new ArrayList<Method>();
-        List<Method> methodsWithParametersAndDependent = new ArrayList<Method>();
-
-        for (Method method : methods) {
-            Argument[] arguments = method.getArguments();
-
-            if (arguments == null || arguments.length <= 0) {
-                methodsWithNoParameters.add(method);
-            } else {
-                String dependsOn = method.getDependsOn();
-                if (dependsOn == null || dependsOn.length() <= 0) {
-                    methodsWithParametersAndNotDependent.add(method);
-                } else {
-                    methodsWithParametersAndDependent.add(method);
-                }
-            }
-        }
-
-        List<Method> methodsInExecutionOrder = new ArrayList<Method>();
-        methodsInExecutionOrder.addAll(methodsWithNoParameters);
-        methodsInExecutionOrder.addAll(methodsWithParametersAndNotDependent);
-        methodsInExecutionOrder.addAll(methodsWithParametersAndDependent);
-        return methodsInExecutionOrder;
     }
 
     private List<MicroAgentID> getBWMicroagents(AgentManager agentManager) {
@@ -160,11 +137,22 @@ public class HawkMetricFetcher implements Runnable {
         return agentManager;
     }
 
-    private void executeMethod(AgentManager agentManager, List<MicroAgentID> bwMicroagents, Method method) {
-        for (MicroAgentID microAgentID : bwMicroagents) {
-            Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
-            printData(method.getMethodName(), null, methodResult, method, microAgentID.getName());
+    private void executeMethod(final AgentManager agentManager, List<MicroAgentID> bwMicroagents, final Method method) {
+
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreadsPerDomain);
+
+        for (final MicroAgentID microAgentID : bwMicroagents) {
+            executorService.execute(new Runnable() {
+                public void run() {
+                    logger.debug("Executing in thread " + Thread.currentThread().getName());
+                    logger.debug("Executing method [" + method.getMethodName() + "] on microagent [" + microAgentID.getName() + "]");
+                    Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
+                    logger.trace("Method [" + method.getMethodName() + "] result on microagent [" + microAgentID.getName() + "] is [" + methodResult + "]");
+                    printData(method.getMethodName(), null, methodResult, method, microAgentID.getName());
+                }
+            });
         }
+        executorService.shutdown();
     }
 
     private Object executeMethod(AgentManager agentManager, MicroAgentID microAgentID, String methodName, DataElement[] args) {
@@ -174,7 +162,7 @@ public class HawkMetricFetcher implements Runnable {
             MicroAgentData m = agentManager.invoke(microAgentID, mi);
             return m.getData();
         } catch (Exception e) {
-            logger.error("Error while executing method [ " + methodName + "]", e);
+            logger.error("Error while executing method [ " + methodName + "] on microagent [" + microAgentID.getName() + "]", e);
         }
         return null;
     }
@@ -188,6 +176,8 @@ public class HawkMetricFetcher implements Runnable {
 
         TibcoResultParser tibcoResultParser = new TibcoResultParser();
         List<TibcoMetric> tibcoMetrics = tibcoResultParser.parseResult(methodResult, method);
+
+        logger.debug("Collected " + tibcoMetrics.size() + " metrics for method [" + methodName + "] on microagent [" + agentDisplayName + "]");
 
         for (TibcoMetric tibcoMetric : tibcoMetrics) {
             configuration.getMetricWriter().printMetric(configuration.getMetricPrefix() + "|" + hawkDomainDisplayName + "|" + agentDisplayName + "|" + methodNameWithDisplayName + "|" + tibcoMetric.getFullPath(), tibcoMetric.getValue(), tibcoMetric.getMetricType());

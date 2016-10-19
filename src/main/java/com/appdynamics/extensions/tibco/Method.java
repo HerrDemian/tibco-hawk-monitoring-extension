@@ -25,8 +25,6 @@ public class Method {
     private String dependsOn;
     @XmlElement(name = "metric")
     private Metric[] metrics;
-    @XmlElement(name = "argument")
-    private Argument[] arguments;
 
     public String getMethodName() {
         return methodName;
@@ -74,14 +72,6 @@ public class Method {
 
     public void setMetrics(Metric[] metrics) {
         this.metrics = metrics;
-    }
-
-    public Argument[] getArguments() {
-        return arguments;
-    }
-
-    public void setArguments(Argument[] arguments) {
-        this.arguments = arguments;
     }
 
     @XmlRootElement

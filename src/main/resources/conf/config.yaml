@@ -10,6 +10,8 @@ hawkConnection:
 # number of concurrent tasks
 numberOfThreads: 1
 
+numberOfThreadsPerDomain: 5
+
 taskSchedule:
     numberOfThreads: 1
     taskDelaySeconds: 60

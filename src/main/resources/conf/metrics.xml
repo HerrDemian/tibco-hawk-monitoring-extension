@@ -39,6 +39,7 @@
             <converter str="OK" value="1"/>
             <converter str="DEAD" value="2"/>
             <converter str="ERROR" value="3"/>
+            <converter str="$default" value="0"/>
         </metric>
         <metric columnName="MinElapsedTime" label="Min Elapsed Time"/>
         <metric columnName="MaxElapsedTime" label="Max Elapsed Time"/>

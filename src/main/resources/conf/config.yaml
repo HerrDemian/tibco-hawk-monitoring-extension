@@ -6,6 +6,9 @@ hawkConnection:
      rvNetwork: ";"
      rvDaemon: "tcp:7474"
      bwMicroagentNameMatcher: [".*bwengine.*"]
+     #This pattern is matched with the BW microagent name and the name extracted from group 1(i.e string matched in the parentheses) is used as the display name. If no group 1 found we will use full microagent name.
+     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "TestNew.Process Archive"
+     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine.testDomain\\.(.*)"
 
 # number of concurrent tasks
 numberOfThreads: 1
@@ -17,8 +20,8 @@ taskSchedule:
     taskDelaySeconds: 60
 
 #This will create this metric in all the tiers, under this path
-metricPrefix: "Custom Metrics|Tibco BW|"
+#metricPrefix: "Custom Metrics|Tibco BW|"
 
 #This will create it in specific Tier/Component. Make sure to replace <COMPONENT_ID> with the appropriate one from your environment.
 #To find the <COMPONENT_ID> in your environment, please follow the screenshot https://docs.appdynamics.com/display/PRO42/Build+a+Monitoring+Extension+Using+Java
-#metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"
+metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"

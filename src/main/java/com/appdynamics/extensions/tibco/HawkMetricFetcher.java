@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author Satish Muddam
@@ -36,6 +38,7 @@ public class HawkMetricFetcher implements Runnable {
     private String hawkDomainDisplayName;
     private Method[] methods;
     private Integer numberOfThreadsPerDomain;
+    private Pattern microagentDisplayNamePattern;
 
     public HawkMetricFetcher(MonitorConfiguration configuration, Map hawkConnection, Method[] methods, Integer numberOfThreadsPerDomain) {
         this.configuration = configuration;
@@ -44,6 +47,7 @@ public class HawkMetricFetcher implements Runnable {
         tibcoResultParser = new TibcoResultParser();
         this.methods = methods;
         this.numberOfThreadsPerDomain = numberOfThreadsPerDomain;
+        this.microagentDisplayNamePattern = Pattern.compile((String)hawkConnection.get("bwMicroagentDisplayNamePattern"));
     }
 
     public void run() {
@@ -148,7 +152,19 @@ public class HawkMetricFetcher implements Runnable {
                     logger.debug("Executing method [" + method.getMethodName() + "] on microagent [" + microAgentID.getName() + "]");
                     Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
                     logger.trace("Method [" + method.getMethodName() + "] result on microagent [" + microAgentID.getName() + "] is [" + methodResult + "]");
-                    printData(method.getMethodName(), null, methodResult, method, microAgentID.getName());
+                    String microagentDisplayName = microAgentID.getName();
+                    try {
+                        Matcher matcher = microagentDisplayNamePattern.matcher(microagentDisplayName);
+                        if(matcher.find()) {
+                            microagentDisplayName = matcher.group(1);
+                        } else {
+                            logger.info("bwMicroagentDisplayNamePattern could not find a matched group, using the microagent full name");
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Error while trying to match bwMicroagentDisplayNamePattern with the microagent name, using the microagent full name");
+                    }
+
+                    printData(method.getMethodName(), null, methodResult, method, microagentDisplayName);
                 }
             });
         }

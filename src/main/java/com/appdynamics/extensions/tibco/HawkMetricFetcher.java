@@ -39,6 +39,8 @@ public class HawkMetricFetcher implements Runnable {
     private Method[] methods;
     private Integer numberOfThreadsPerDomain;
     private Pattern microagentDisplayNamePattern;
+    private List<Integer> bwMicroagentDisplayNameRegexGroups;
+    private String bwMicroagentDisplayNameRegexGroupSeparator;
 
     public HawkMetricFetcher(MonitorConfiguration configuration, Map hawkConnection, Method[] methods, Integer numberOfThreadsPerDomain) {
         this.configuration = configuration;
@@ -47,7 +49,9 @@ public class HawkMetricFetcher implements Runnable {
         tibcoResultParser = new TibcoResultParser();
         this.methods = methods;
         this.numberOfThreadsPerDomain = numberOfThreadsPerDomain;
-        this.microagentDisplayNamePattern = Pattern.compile((String)hawkConnection.get("bwMicroagentDisplayNamePattern"));
+        this.microagentDisplayNamePattern = Pattern.compile((String) hawkConnection.get("bwMicroagentDisplayNamePattern"));
+        this.bwMicroagentDisplayNameRegexGroups = (List<Integer>) hawkConnection.get("bwMicroagentDisplayNameRegexGroups");
+        this.bwMicroagentDisplayNameRegexGroupSeparator = (String) hawkConnection.get("bwMicroagentDisplayNameRegexGroupSeparator");
     }
 
     public void run() {
@@ -153,10 +157,29 @@ public class HawkMetricFetcher implements Runnable {
                     Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
                     logger.trace("Method [" + method.getMethodName() + "] result on microagent [" + microAgentID.getName() + "] is [" + methodResult + "]");
                     String microagentDisplayName = microAgentID.getName();
+                    StringBuilder displayNameBuilder = new StringBuilder();
                     try {
                         Matcher matcher = microagentDisplayNamePattern.matcher(microagentDisplayName);
-                        if(matcher.find()) {
-                            microagentDisplayName = matcher.group(1);
+                        if (matcher.find()) {
+                            int groupCount = matcher.groupCount();
+                            boolean failed = false;
+                            for (Integer group : bwMicroagentDisplayNameRegexGroups) {
+                                if (group <= groupCount) {
+                                    if (displayNameBuilder.length() > 0) {
+                                        displayNameBuilder.append(bwMicroagentDisplayNameRegexGroupSeparator);
+                                    }
+                                    displayNameBuilder.append(matcher.group(group));
+                                } else {
+                                    failed = true;
+                                    logger.info("Invalid group provided in bwMicroagentDisplayNameRegexGroups, using the microagent full name");
+                                    break;
+                                }
+                            }
+
+                            if (!failed) {
+                                microagentDisplayName = displayNameBuilder.toString();
+                            }
+
                         } else {
                             logger.info("bwMicroagentDisplayNamePattern could not find a matched group, using the microagent full name");
                         }

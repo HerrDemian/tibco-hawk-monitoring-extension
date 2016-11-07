@@ -6,9 +6,11 @@ hawkConnection:
      rvNetwork: ";"
      rvDaemon: "tcp:7474"
      bwMicroagentNameMatcher: [".*bwengine.*"]
-     #This pattern is matched with the BW microagent name and the name extracted from group 1(i.e string matched in the parentheses) is used as the display name. If no group 1 found we will use full microagent name.
-     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "TestNew.Process Archive"
-     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine.testDomain\\.(.*)"
+     #This pattern is matched with the BW microagent name and the name extracted from specified groups(i.e string matched in the parentheses) is used as the display name. If no group found or invalid group used we will use full microagent name.
+     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "testDomain-TestNew-Process Archive"
+     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine\\.(.*)\\.(.*)\\.(.*)"
+     bwMicroagentDisplayNameRegexGroups: [1, 2, 3]
+     bwMicroagentDisplayNameRegexGroupSeparator: "-"
 
 # number of concurrent tasks
 numberOfThreads: 1

@@ -158,7 +158,7 @@ To use the workbench
 * Follow all the installation steps
 * Start the workbench with the command
 ~~~
-  java -jar /path/to/MachineAgent/monitors/F5Monitor/f5-monitoring-extension.jar
+  java -jar /path/to/MachineAgent/monitors/TibcoHawkMonitor/tibco-hawk-monitoring-extension.jar
   This starts an http server at http://host:9090/. This can be accessed from the browser.
 ~~~
 * If the server is not accessible from outside/browser, you can use the following end points to see the list of registered metrics and errors.

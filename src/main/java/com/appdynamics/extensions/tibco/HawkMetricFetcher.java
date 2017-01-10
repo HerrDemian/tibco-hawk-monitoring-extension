@@ -10,14 +10,18 @@ import COM.TIBCO.hawk.talon.MicroAgentException;
 import COM.TIBCO.hawk.talon.MicroAgentID;
 import COM.TIBCO.hawk.utilities.misc.HawkConstants;
 import com.appdynamics.extensions.conf.MonitorConfiguration;
+import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.Lists;
 import org.apache.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -56,9 +60,10 @@ public class HawkMetricFetcher implements Runnable {
 
     public void run() {
 
+        AgentManager agentManager = null;
         try {
 
-            AgentManager agentManager = connect();
+            agentManager = connect();
             List<MicroAgentID> bwMicroagents = getBWMicroagents(agentManager);
 
             if (bwMicroagents == null || bwMicroagents.isEmpty()) {
@@ -68,17 +73,46 @@ public class HawkMetricFetcher implements Runnable {
 
             List<Method> methodsToExecute = Lists.newArrayList(this.methods);
 
-            for (Method method : methodsToExecute) {
-                if (method.isEnabled()) {
-                    executeMethod(agentManager, bwMicroagents, method);
-                } else {
-                    logger.info("Method " + method.getMethodName() + " is not enabled, hence skipping");
-                }
+            Collection<Method> enabledMethodsToExecute = filterEnabled(methodsToExecute);
+
+            CountDownLatch countDownLatch = new CountDownLatch(enabledMethodsToExecute.size() * bwMicroagents.size());
+
+            for (Method method : enabledMethodsToExecute) {
+                executeMethod(agentManager, bwMicroagents, method, countDownLatch);
             }
+
+            countDownLatch.await();
+
+            //Shutting down the agentManager after executing all the tasks.
+            logger.info("Shutting down the Tibco Hawk connection");
+            agentManager.shutdown();
 
         } catch (Exception e) {
             logger.error("Error while collecting metrics from domain [" + hawkDomainDisplayName + "]", e);
+        } finally {
+            //Trying to shutting down the agentManager again, useful if some error occurred in try and could not shutdown there.
+            if(agentManager != null) {
+                logger.info("Verifying Tibco Hawk connection status and closing if required.");
+                agentManager.shutdown();
+            }
         }
+    }
+
+    Predicate<Method> predicate = new Predicate<Method>() {
+        public boolean apply(Method input) {
+            Boolean enabled = input.isEnabled();
+            if (!enabled) {
+                logger.info("Method " + input.getMethodName() + " is not enabled, hence skipping");
+                return false;
+            } else {
+                return true;
+            }
+        }
+    };
+
+    private Collection<Method> filterEnabled(List<Method> methodsToExecute) {
+        return Collections2.filter(methodsToExecute, predicate);
+
     }
 
     private List<MicroAgentID> getBWMicroagents(AgentManager agentManager) {
@@ -138,6 +172,7 @@ public class HawkMetricFetcher implements Runnable {
             TIBHawkConsole hawkConsole = TIBHawkConsoleFactory.getInstance().createHawkConsole(result);
             agentManager = hawkConsole.getAgentManager();
             agentManager.initialize();
+            logger.info("Connection to Tibco Hawk successful");
         } catch (Exception e) {
             logger.error("Exception while connecting to hawk", e);
             throw new RuntimeException("Exception while connecting to hawk", e);
@@ -145,49 +180,53 @@ public class HawkMetricFetcher implements Runnable {
         return agentManager;
     }
 
-    private void executeMethod(final AgentManager agentManager, List<MicroAgentID> bwMicroagents, final Method method) {
+    private void executeMethod(final AgentManager agentManager, List<MicroAgentID> bwMicroagents, final Method method, final CountDownLatch countDownLatch) {
 
         ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreadsPerDomain);
 
         for (final MicroAgentID microAgentID : bwMicroagents) {
             executorService.execute(new Runnable() {
                 public void run() {
-                    logger.debug("Executing in thread " + Thread.currentThread().getName());
-                    logger.debug("Executing method [" + method.getMethodName() + "] on microagent [" + microAgentID.getName() + "]");
-                    Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
-                    logger.trace("Method [" + method.getMethodName() + "] result on microagent [" + microAgentID.getName() + "] is [" + methodResult + "]");
-                    String microagentDisplayName = microAgentID.getName();
-                    StringBuilder displayNameBuilder = new StringBuilder();
                     try {
-                        Matcher matcher = microagentDisplayNamePattern.matcher(microagentDisplayName);
-                        if (matcher.find()) {
-                            int groupCount = matcher.groupCount();
-                            boolean failed = false;
-                            for (Integer group : bwMicroagentDisplayNameRegexGroups) {
-                                if (group <= groupCount) {
-                                    if (displayNameBuilder.length() > 0) {
-                                        displayNameBuilder.append(bwMicroagentDisplayNameRegexGroupSeparator);
+                        logger.debug("Executing in thread " + Thread.currentThread().getName());
+                        logger.debug("Executing method [" + method.getMethodName() + "] on microagent [" + microAgentID.getName() + "]");
+                        Object methodResult = executeMethod(agentManager, microAgentID, method.getMethodName(), null);
+                        logger.trace("Method [" + method.getMethodName() + "] result on microagent [" + microAgentID.getName() + "] is [" + methodResult + "]");
+                        String microagentDisplayName = microAgentID.getName();
+                        StringBuilder displayNameBuilder = new StringBuilder();
+                        try {
+                            Matcher matcher = microagentDisplayNamePattern.matcher(microagentDisplayName);
+                            if (matcher.find()) {
+                                int groupCount = matcher.groupCount();
+                                boolean failed = false;
+                                for (Integer group : bwMicroagentDisplayNameRegexGroups) {
+                                    if (group <= groupCount) {
+                                        if (displayNameBuilder.length() > 0) {
+                                            displayNameBuilder.append(bwMicroagentDisplayNameRegexGroupSeparator);
+                                        }
+                                        displayNameBuilder.append(matcher.group(group));
+                                    } else {
+                                        failed = true;
+                                        logger.info("Invalid group provided in bwMicroagentDisplayNameRegexGroups, using the microagent full name");
+                                        break;
                                     }
-                                    displayNameBuilder.append(matcher.group(group));
-                                } else {
-                                    failed = true;
-                                    logger.info("Invalid group provided in bwMicroagentDisplayNameRegexGroups, using the microagent full name");
-                                    break;
                                 }
-                            }
 
-                            if (!failed) {
-                                microagentDisplayName = displayNameBuilder.toString();
-                            }
+                                if (!failed) {
+                                    microagentDisplayName = displayNameBuilder.toString();
+                                }
 
-                        } else {
-                            logger.info("bwMicroagentDisplayNamePattern could not find a matched group, using the microagent full name");
+                            } else {
+                                logger.info("bwMicroagentDisplayNamePattern could not find a matched group, using the microagent full name");
+                            }
+                        } catch (Exception e) {
+                            logger.warn("Error while trying to match bwMicroagentDisplayNamePattern with the microagent name, using the microagent full name");
                         }
-                    } catch (Exception e) {
-                        logger.warn("Error while trying to match bwMicroagentDisplayNamePattern with the microagent name, using the microagent full name");
-                    }
 
-                    printData(method.getMethodName(), null, methodResult, method, microagentDisplayName);
+                        printData(method.getMethodName(), null, methodResult, method, microagentDisplayName);
+                    } finally {
+                        countDownLatch.countDown();
+                    }
                 }
             });
         }

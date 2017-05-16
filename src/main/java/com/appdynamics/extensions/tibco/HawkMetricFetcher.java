@@ -59,10 +59,8 @@ public class HawkMetricFetcher implements Runnable {
     }
 
     public void run() {
-
         AgentManager agentManager = null;
         try {
-
             agentManager = connect();
             List<MicroAgentID> bwMicroagents = getBWMicroagents(agentManager);
 
@@ -70,28 +68,21 @@ public class HawkMetricFetcher implements Runnable {
                 logger.error("No BW microagents found for the specified patterns. Exiting the process.");
                 return;
             }
-
             List<Method> methodsToExecute = Lists.newArrayList(this.methods);
-
             Collection<Method> enabledMethodsToExecute = filterEnabled(methodsToExecute);
-
             CountDownLatch countDownLatch = new CountDownLatch(enabledMethodsToExecute.size() * bwMicroagents.size());
-
             for (Method method : enabledMethodsToExecute) {
                 executeMethod(agentManager, bwMicroagents, method, countDownLatch);
             }
-
             countDownLatch.await();
-
             //Shutting down the agentManager after executing all the tasks.
             logger.info("Shutting down the Tibco Hawk connection");
             agentManager.shutdown();
-
         } catch (Exception e) {
             logger.error("Error while collecting metrics from domain [" + hawkDomainDisplayName + "]", e);
         } finally {
             //Trying to shutting down the agentManager again, useful if some error occurred in try and could not shutdown there.
-            if(agentManager != null) {
+            if (agentManager != null) {
                 logger.info("Verifying Tibco Hawk connection status and closing if required.");
                 agentManager.shutdown();
             }
@@ -112,7 +103,6 @@ public class HawkMetricFetcher implements Runnable {
 
     private Collection<Method> filterEnabled(List<Method> methodsToExecute) {
         return Collections2.filter(methodsToExecute, predicate);
-
     }
 
     private List<MicroAgentID> getBWMicroagents(AgentManager agentManager) {
@@ -144,29 +134,49 @@ public class HawkMetricFetcher implements Runnable {
                 logger.error("Unable to get the microagent with name [" + bwMicroAgentId + "]");
             }
         }
-
         return bwMicroAgentIds;
     }
 
     private AgentManager connect() {
         String hawkDomain = (String) hawkConnection.get("hawkDomain");
-        String rvService = (String) hawkConnection.get("rvService");
-        String rvNetwork = (String) hawkConnection.get("rvNetwork");
-        String rvDaemon = (String) hawkConnection.get("rvDaemon");
-
-        if (Strings.isNullOrEmpty(hawkDomain) || Strings.isNullOrEmpty(rvService)
-                || Strings.isNullOrEmpty(rvNetwork) || Strings.isNullOrEmpty(rvDaemon)) {
-            logger.error("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
-            throw new IllegalArgumentException("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
-        }
+        String transportType = (String) hawkConnection.get("transportType");
 
         Map<String, Object> result = new HashMap<String, Object>();
-        result.put(HawkConstants.HAWK_TRANSPORT, HawkConstants.HAWK_TRANSPORT_TIBRV);
-        result.put(HawkConstants.RV_SERVICE, rvService);
-        result.put(HawkConstants.RV_NETWORK, rvNetwork);
-        result.put(HawkConstants.RV_DAEMON, rvDaemon);
         result.put(HawkConstants.HAWK_DOMAIN, hawkDomain);
+        if (HawkConstants.HAWK_TRANSPORT_TIBEMS.equals(transportType)) {
+            result.put(HawkConstants.HAWK_TRANSPORT, HawkConstants.HAWK_TRANSPORT_TIBEMS);
 
+            String emsURL = (String) hawkConnection.get("emsURL");
+            String emsUserName = (String) hawkConnection.get("emsUserName");
+            String emsPassword = (String) hawkConnection.get("emsPassword");
+
+            if (Strings.isNullOrEmpty(hawkDomain) || Strings.isNullOrEmpty(emsURL)) {
+                logger.error("Please provide hawkDomain and emsURL in the config.");
+                throw new IllegalArgumentException("Please provide hawkDomain and emsURL in the config.");
+            }
+            result.put(HawkConstants.HAWK_EMS_URL, emsURL);
+            result.put(HawkConstants.HAWK_EMS_USERNAME, emsUserName);
+            result.put(HawkConstants.HAWK_EMS_PWD, emsPassword);
+        } else if (HawkConstants.HAWK_TRANSPORT_TIBRV.equals(transportType)) {
+            result.put(HawkConstants.HAWK_TRANSPORT, HawkConstants.HAWK_TRANSPORT_TIBRV);
+
+            String rvService = (String) hawkConnection.get("rvService");
+            String rvNetwork = (String) hawkConnection.get("rvNetwork");
+            String rvDaemon = (String) hawkConnection.get("rvDaemon");
+
+            if (Strings.isNullOrEmpty(hawkDomain) || Strings.isNullOrEmpty(rvService)
+                    || Strings.isNullOrEmpty(rvNetwork) || Strings.isNullOrEmpty(rvDaemon)) {
+                logger.error("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
+                throw new IllegalArgumentException("Please provide hawkDomain, rvService, rvNetwork, rvDaemon in the config.");
+            }
+
+            result.put(HawkConstants.RV_SERVICE, rvService);
+            result.put(HawkConstants.RV_NETWORK, rvNetwork);
+            result.put(HawkConstants.RV_DAEMON, rvDaemon);
+        } else {
+            logger.error("Invalid transport type [ " + transportType + " ] specified. Supported transport types are tibrv and tibems.");
+            throw new IllegalArgumentException("Invalid transport type [ " + transportType + " ] specified. Supported transport types are tibrv and tibems.");
+        }
         AgentManager agentManager = null;
         try {
             TIBHawkConsole hawkConsole = TIBHawkConsoleFactory.getInstance().createHawkConsole(result);
@@ -211,18 +221,15 @@ public class HawkMetricFetcher implements Runnable {
                                         break;
                                     }
                                 }
-
                                 if (!failed) {
                                     microagentDisplayName = displayNameBuilder.toString();
                                 }
-
                             } else {
                                 logger.info("bwMicroagentDisplayNamePattern could not find a matched group, using the microagent full name");
                             }
                         } catch (Exception e) {
                             logger.warn("Error while trying to match bwMicroagentDisplayNamePattern with the microagent name, using the microagent full name");
                         }
-
                         printData(method.getMethodName(), null, methodResult, method, microagentDisplayName);
                     } finally {
                         countDownLatch.countDown();
@@ -246,7 +253,6 @@ public class HawkMetricFetcher implements Runnable {
     }
 
     private void printData(String methodName, String methodDisplayName, Object methodResult, Method method, String agentDisplayName) {
-
         StringBuilder methodNameWithDisplayName = new StringBuilder(methodName);
         if (methodDisplayName != null && methodDisplayName.length() > 0) {
             methodNameWithDisplayName.append("|").append(methodDisplayName);

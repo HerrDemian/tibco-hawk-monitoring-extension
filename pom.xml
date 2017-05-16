@@ -61,6 +61,41 @@
             <systemPath>${project.basedir}/lib/util.jar</systemPath>
         </dependency>
         <dependency>
+            <groupId>javax</groupId>
+            <artifactId>jms</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/jms.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>tibco</groupId>
+            <artifactId>security</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/security.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>tibco</groupId>
+            <artifactId>tibcrypt</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tibcrypt.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>tibco</groupId>
+            <artifactId>tibjms</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tibjms.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>tibco</groupId>
+            <artifactId>tibrvjms</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/tibrvjms.jar</systemPath>
+        </dependency>
+        <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
             <version>1.6</version>

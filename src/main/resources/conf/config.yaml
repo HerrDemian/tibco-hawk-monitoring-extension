@@ -1,11 +1,36 @@
 #Only RV mode is supported for now
 hawkConnection:
-   - displayName: "Domin 1"
+   - displayName: "RV Domain"
      hawkDomain: "testDomain"
+     # Supported transport types are tibrv and tibems
+     transportType: "tibrv"
+     # RV transport properties
      rvService: "7474"
      rvNetwork: ";"
      rvDaemon: "tcp:7474"
-     bwMicroagentNameMatcher: [".*bwengine.*"]
+     # EMS transport properties
+     #emsURL: ""
+     #emsUserName:
+     #emsPassword:
+     bwMicroagentNameMatcher: [".*bwengine.*testDomain.*"]
+     #This pattern is matched with the BW microagent name and the name extracted from specified groups(i.e string matched in the parentheses) is used as the display name. If no group found or invalid group used we will use full microagent name.
+     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "testDomain-TestNew-Process Archive"
+     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine\\.(.*)\\.(.*)\\.(.*)"
+     bwMicroagentDisplayNameRegexGroups: [1, 2, 3]
+     bwMicroagentDisplayNameRegexGroupSeparator: "-"
+   - displayName: "EMS Domain"
+     hawkDomain: "emsdomain"
+     # Supported transport types are tibrv and tibems
+     transportType: "tibems"
+     # RV transport properties
+     #rvService: "7474"
+     #rvNetwork: ";"
+     #rvDaemon: "tcp:7474"
+     # EMS transport properties
+     emsURL: "tcp://localhost:7222"
+     emsUserName: "admin"
+     emsPassword:
+     bwMicroagentNameMatcher: [".*bwengine.*emsdomain.*"]
      #This pattern is matched with the BW microagent name and the name extracted from specified groups(i.e string matched in the parentheses) is used as the display name. If no group found or invalid group used we will use full microagent name.
      #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "testDomain-TestNew-Process Archive"
      bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine\\.(.*)\\.(.*)\\.(.*)"
@@ -13,7 +38,7 @@ hawkConnection:
      bwMicroagentDisplayNameRegexGroupSeparator: "-"
 
 # number of concurrent tasks
-numberOfThreads: 1
+numberOfThreads: 2
 
 numberOfThreadsPerDomain: 5
 

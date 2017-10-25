@@ -33,6 +33,9 @@ This extension works only with the standalone machine agent.
 | rvService | RV service to use to connect to hawk | "7474" |
 | rvNetwork | RV network to use to connect to hawk | ";" |
 | rvDaemon | RV daemon to use to connect to hawk | "tcp:7474" |
+| emsURL | EMS URL to use to connect to hawk | "tcp://localhost:7222" |
+| emsUserName | EMS user to use to connect to hawk | "admin" |
+| emsPassword | EMS userpassword to use to connect to hawk | "admin" |
 | bwMicroagentNameMatcher | regex matcher to match and autodetect the BW hawk microagents  | ".\*bwengine.\*" |
 
 ###metrics.xml
@@ -42,34 +45,59 @@ This file contains the methods to execute using BW hawk micro agents and metrics
 **Below is an example config for monitoring multiple BW  domains:**
 
 ~~~
-#Only RV mode is supported for now
 hawkConnection:
-   - displayName: "Domin 1"
+   - displayName: "RV Domain"
      hawkDomain: "testDomain"
+     # Supported transport types are tibrv and tibems
+     transportType: "tibrv"
+     # RV transport properties
      rvService: "7474"
      rvNetwork: ";"
      rvDaemon: "tcp:7474"
-     bwMicroagentNameMatcher: [".*bwengine.*"]
-   - displayName: "Domin 2"
-     hawkDomain: "testDomain1"
-     rvService: "7474"
-     rvNetwork: ";"
-     rvDaemon: "tcp:7474"
-     bwMicroagentNameMatcher: [".*bwengine.*"]
+     # EMS transport properties
+     #emsURL: ""
+     #emsUserName:
+     #emsPassword:
+     bwMicroagentNameMatcher: [".*bwengine.*testDomain.*"]
+     #This pattern is matched with the BW microagent name and the name extracted from specified groups(i.e string matched in the parentheses) is used as the display name. If no group found or invalid group used we will use full microagent name.
+     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "testDomain-TestNew-Process Archive"
+     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine\\.(.*)\\.(.*)\\.(.*)"
+     bwMicroagentDisplayNameRegexGroups: [1, 2, 3]
+     bwMicroagentDisplayNameRegexGroupSeparator: "-"
+   - displayName: "EMS Domain"
+     hawkDomain: "emsdomain"
+     # Supported transport types are tibrv and tibems
+     transportType: "tibems"
+     # RV transport properties
+     #rvService: "7474"
+     #rvNetwork: ";"
+     #rvDaemon: "tcp:7474"
+     # EMS transport properties
+     emsURL: "tcp://localhost:7222"
+     emsUserName: "admin"
+     emsPassword:
+     bwMicroagentNameMatcher: [".*bwengine.*emsdomain.*"]
+     #This pattern is matched with the BW microagent name and the name extracted from specified groups(i.e string matched in the parentheses) is used as the display name. If no group found or invalid group used we will use full microagent name.
+     #Example, for "COM.TIBCO.ADAPTER.bwengine.testDomain.TestNew.Process Archive" using the below pattern, display name would be "testDomain-TestNew-Process Archive"
+     bwMicroagentDisplayNamePattern: "COM.TIBCO.ADAPTER.bwengine\\.(.*)\\.(.*)\\.(.*)"
+     bwMicroagentDisplayNameRegexGroups: [1, 2, 3]
+     bwMicroagentDisplayNameRegexGroupSeparator: "-"
 
 # number of concurrent tasks
-numberOfThreads: 1
+numberOfThreads: 2
+
+numberOfThreadsPerDomain: 5
 
 taskSchedule:
     numberOfThreads: 1
     taskDelaySeconds: 60
 
 #This will create this metric in all the tiers, under this path
-metricPrefix: "Custom Metrics|Tibco BW|"
+#metricPrefix: "Custom Metrics|Tibco BW|"
 
 #This will create it in specific Tier/Component. Make sure to replace <COMPONENT_ID> with the appropriate one from your environment.
 #To find the <COMPONENT_ID> in your environment, please follow the screenshot https://docs.appdynamics.com/display/PRO42/Build+a+Monitoring+Extension+Using+Java
-#metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"
+metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"
 ~~~
 
 ##Metrics

@@ -1,7 +1,7 @@
 # AppDynamics Tibco BW Monitoring Extension
 
 
-##Use Case
+## Use Case
 
 TIBCO BusinessWorks™ is a family of next-generation, industry-leading enterprise integration products designed to address the new integration challenges faced when transitioning to a digital business.
 The Tibco BW Monitoring Extension executes BW methods using BW hawk microagents and presents them in the AppDynamics Metric Browser.
@@ -11,7 +11,7 @@ This extension works only with the standalone machine agent.
 **Note : By default, the Machine agent and AppServer agent can only send a fixed number of metrics to the controller. This extension potentially reports thousands of metrics, so to change this limit, please follow the instructions mentioned [here](https://docs.appdynamics.com/display/PRO40/Metrics+Limits).**
 
 
-##Installation
+## Installation
 
 1. Run 'mvn clean install' from tibco-hawk-monitoring-extension
 2. Copy and unzip TibcoHawkMonitor-\<version\>.zip from 'target' directory into \<machine_agent_dir\>/monitors/
@@ -20,9 +20,9 @@ This extension works only with the standalone machine agent.
 5. Replace the jars in lib with the jars from your Tibco BW installation. In BW 5.9 all the jars are available in tibrv folder.
 6. Restart the Machine Agent.
 
-##Configuration
+## Configuration
 
-###config.yaml
+### config.yaml
 
 **Note: Please avoid using tab (\t) when editing yaml files. You may want to validate the yaml file using a [yaml validator](http://yamllint.com/).**
 
@@ -38,7 +38,7 @@ This extension works only with the standalone machine agent.
 | emsPassword | EMS userpassword to use to connect to hawk | "admin" |
 | bwMicroagentNameMatcher | regex matcher to match and autodetect the BW hawk microagents  | ".\*bwengine.\*" |
 
-###metrics.xml
+### metrics.xml
 
 This file contains the methods to execute using BW hawk micro agents and metrics to collect from the method results.
 
@@ -100,12 +100,12 @@ taskSchedule:
 metricPrefix: "Server|Component:<COMPONENT_ID>|Custom Metrics|Tibco BW"
 ~~~
 
-##Metrics
+## Metrics
 Metric path is typically: **Application Infrastructure Performance|\<Tier\>|Custom Metrics|Tibco BW|** followed by the individual categories/metrics below:
 
 Metrics provided by this extension are depend on the methods and metrics configured in the metrics.xml. Below is list of methods and metrics they provide.
 
-###GetMemoryUsage###
+### GetMemoryUsage
 
 | Metric | Description |
 | ----- | ----- |
@@ -114,14 +114,14 @@ Metrics provided by this extension are depend on the methods and metrics configu
 | UsedBytes |  Total number of bytes that are currently in use.  |
 | PercentUsed | Percentage of total bytes that are in use.  |
 
-###GetProcessCount###
+### GetProcessCount
 
 | Metric | Description |
 | ----- | ----- |
 | TotalRunningProcesses | Total number of currently executing process instances.  |
 
 
-###GetProcessDefinitions###
+### GetProcessDefinitions
 
 For each process definition following metrics are displayed
 
@@ -148,7 +148,7 @@ For each process definition following metrics are displayed
 | CountSinceReset | Number of process instances that have completed since the last reset of the statistics. |
 
 
-###GetActivities###
+### GetActivities
 
 For each activity in each process definition following metrics are displayed
 
@@ -167,7 +167,7 @@ For each activity in each process definition following metrics are displayed
 | ExecutionCountSinceReset | Number of activity executions that have completed since the last reset of the statistics.  |
 
 
-##Troubleshooting
+## Troubleshooting
 
 1. Verify Machine Agent Data: Please start the Machine Agent without the extension and make sure that it reports data. Verify that the machine agent status is UP and it is reporting Hardware Metrics
 2. config.yml: Validate the file [here] (http://www.yamllint.com/)
@@ -177,7 +177,7 @@ For each activity in each process definition following metrics are displayed
 6. Collect Debug Logs: Edit the file, <MachineAgent>/conf/logging/log4j.xml and update the level of the appender com.appdynamics to debug Let it run for 5-10 minutes and attach the logs to a support ticket
 
 
-##Workbench
+## Workbench
 
 Workbench is a feature by which you can preview the metrics before registering it with the controller. This is useful if you want to fine tune the configurations. Workbench is embedded into the extension jar.
 
@@ -200,15 +200,15 @@ To use the workbench
 * Once the configuration is complete, you can kill the workbench and start the Machine Agent
 
 
-##Contributing
+## Contributing
 
 Always feel free to fork and contribute any changes directly via [GitHub](https://github.com/Appdynamics/tibco-hawk-monitoring-extension).
 
-##Community
+## Community
 
 Find out more in the [AppSphere](https://www.appdynamics.com/community/exchange/) community.
 
-##Support
+## Support
 
 For any questions or feature request, please contact [AppDynamics Center of Excellence](mailto:help@appdynamics.com).
 
